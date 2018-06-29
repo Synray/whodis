@@ -40,14 +40,12 @@ def _LoadCompdb(compdb_path):
     for c in commands:
         path = os.path.normpath(os.path.join(c['directory'], c['file']))
         if 'output' in c:
-            output = os.path.normpath(os.path.
-                    join(c['directory'], c['output']))
+            output = os.path.normpath(os.path.join(c['directory'], c['output']))
         else:
             split_cmd = shlex.split(c['command'])
-            o_index = split_cmd.index('-o')
-            assert o_index != -1
-            output = os.path.normpath(
-                    os.path.join(c['directory'], split_cmd[o_index + 1]))
+            if '-o' in split_cmd:
+                o_index = split_cmd.index('-o')
+                output = os.path.normpath(os.path.join(c['directory'], split_cmd[o_index + 1]))
         result[path] = c['directory'], c['command'], output
     return result
 
@@ -55,7 +53,6 @@ def _LoadCompdb(compdb_path):
 def _FindIndexForFile(cwd, file_directives, filename):
     for line in file_directives:
         parts = shlex.split(line)
-        print(parts)
         if len(parts) < 2:
             continue
         index, dirname = parts
@@ -197,7 +194,7 @@ def _BuildSourceData(cwd, contents, tu_index):
                 comment_start = line.find('//')
             trailing_filename = line[comment_start:].lstrip('#/').lstrip(' ')
             mo = re.match(r'\s+\.loc\s+(\d+)\s+(\d+)', line)
-            file_name, line_number = _GetFileNameAndLineNumber(trailing_filename)
+            #file_name, line_number = _GetFileNameAndLineNumber(trailing_filename)
 
             if mo:
                 line_number = mo.group(2)
@@ -213,12 +210,12 @@ def _BuildSourceData(cwd, contents, tu_index):
 
                 if line_number != last_line:
                     suffix = '    // ' + 'file_name' + ':' + line_number
-                    if line_number != '0':
-                        sd._AddLine(
-                                '# ' + _GetSourceLine(cwd, file_name, line_number) + suffix,
-                                -1, line_number)
-                    else:
-                        sd._AddLine('# ' + 'file_name' + ':' + line_number, -1, line_number)
+                    #if line_number != '0':
+                    #    sd._AddLine(
+                    #            '# ' + _GetSourceLine(cwd, file_name, line_number) + suffix,
+                    #            -1, line_number)
+                    #else:
+                    #    sd._AddLine('# ' + 'file_name' + ':' + line_number, -1, line_number)
                     last_line = line_number
         else:
             if line.startswith('\t.'):
@@ -247,7 +244,6 @@ def _AssignDisasmColours(source_data):
 def _GetDesiredLine(asm_contents, tu_index):
     cursor_line = vim.current.window.cursor[0]
     line_index = _FindLineContainingCursor(asm_contents, tu_index, cursor_line)
-    print(line_index)
     if not line_index:
         # TODO: Maybe something smarter here. [m doesn't work too well,
         # but maybe some sort of parsing out of a current function name    rather than
@@ -354,7 +350,6 @@ def Whodis():
     with open(temp_asm, 'rb') as f:
         asm_contents = [x.rstrip() for x in f.readlines()]
     file_lines = [x[7:] for x in asm_contents if x.startswith('\t.file')]
-    print(file_lines)
     tu_index = _FindIndexForFile(cwd, file_lines, name)
 
     line_index = _GetDesiredLine(asm_contents, tu_index)
@@ -367,8 +362,7 @@ def Whodis():
 
     filter_prog = vim.vars['WhodisFilterProgram']
     if filter_prog:
-        p = subprocess.Popen([filter_prog],
-                                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        p = subprocess.Popen([filter_prog], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         new_contents = p.communicate('\n'.join(contents))[0].splitlines(False)
         if p.returncode != 0:
             print('WhodisFilterProgram ' + filter_prog + ' returned non-zero')
